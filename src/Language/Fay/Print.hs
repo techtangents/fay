@@ -211,7 +211,3 @@ normalize name =
 -- | Helpful for writing qualified symbols (Fay.*).
 instance IsString ModuleName where
   fromString = ModuleName
-
--- | Helpful for writing variable names.
-instance IsString JsName where
-  fromString = UnQual . Ident

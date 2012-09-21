@@ -1223,5 +1223,3 @@ parseResult fail ok result =
 -- | Get a config option.
 config :: (CompileConfig -> a) -> Compile a
 config f = gets (f . stateConfig)
-
-instance IsString Name where fromString = Ident

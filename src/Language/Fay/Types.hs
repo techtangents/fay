@@ -1,3 +1,4 @@
+{-# OPTIONS -fno-warn-orphans #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -22,6 +23,7 @@ module Language.Fay.Types
   ,FundamentalType(..))
   where
 
+import Data.String
 import           Control.Applicative
 import           Control.Exception
 import           Control.Monad.Error    (Error, ErrorT, MonadError)
@@ -206,3 +208,6 @@ data FundamentalType
  -- | Unknown.
  | UnknownType
    deriving (Show,Eq)
+
+instance IsString Name where fromString = Ident
+instance IsString QName where fromString = UnQual . fromString
