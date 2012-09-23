@@ -5,12 +5,14 @@ module Language.Fay.Core where
 import Control.Monad
 import Control.Monad.Identity
 import Data.Generics.Text.Extra
+import Data.List
 import Data.String
+import Encoding
 import Language.Core.Core
 import Language.Core.ParseGlue
 import Language.Core.Parser
 import Language.Fay.Print ()
-import Language.Fay.Types (JsExp(..),JsStmt(..),JsName,printJS)
+import Language.Fay.Types (JsExp(..),JsStmt(..),JsName,JsLit(..),printJS)
 import Prelude hiding (exp)
 import System.Process.Extra
 
@@ -25,6 +27,7 @@ compileFile fp = do
 -- | Print the JS compiled from a file.
 printCompileFile :: FilePath -> IO ()
 printCompileFile fp = do
+  readFile fp >>= putStrLn
   js <- compileFile fp
   putStrLn $ printJS $ js
 
@@ -80,7 +83,7 @@ qualToName = fromString . qualToString
 -- | Convert a qualified thing to a string.
 qualToString :: Qual String -> String
 qualToString (name,var) =
-  show name ++ "." ++ var
+  maybe "" (zDecodeString . show) name ++ "." ++ zDecodeString var
 
 -- | Compile an expression.
 compileExp :: Exp -> Compile JsExp
@@ -94,8 +97,12 @@ compileExp exp =
 
 -- | Compile a literal.
 compileLit :: Lit -> Compile JsExp
-compileLit lit =
-  return JsNull
+compileLit (Literal lit _) = return $ JsLit $
+  case lit of
+    Lstring str -> JsStr str
+    Lchar char -> JsChar char
+    Lrational rat -> JsFloating (fromRational rat)
+    Lint i -> JsInt (fromInteger i)
 
 -- | Compile a function application.
 compileApp :: Exp -> Exp -> Compile JsExp
@@ -103,3 +110,13 @@ compileApp op arg = do
   o <- compileExp op
   a <- compileExp arg
   return (JsApp o [a])
+
+fibs = 1 : 1 : zipWith (+) fibs (tail fibs)
+
+greedy :: Integer -> Integer
+greedy n = last $ takeWhile (<= n) fibs
+
+zeckendorf :: Integer -> [Integer]
+zeckendorf n = reverse $ rec n where
+  rec 0 = []
+  rec x = g : rec (n - g) where g = greedy n

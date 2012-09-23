@@ -17,6 +17,7 @@ module Language.Fay.Print where
 
 import Language.Fay.Types
 
+import Encoding
 import Data.Aeson.Encode
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import Data.List
@@ -198,15 +199,7 @@ jsEncodeName name = normalize name
 
 -- | Normalize the given name to JavaScript-valid names.
 normalize :: [Char] -> [Char]
-normalize name =
-  concatMap encodeChar name
-
-  where
-    encodeChar c | c `elem` allowed = [c]
-                 | otherwise      = escapeChar c
-    allowed = ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ "_"
-    escapeChar c = "$" ++ charId c ++ "$"
-    charId c = show (fromEnum c)
+normalize name = zEncodeString name
 
 -- | Helpful for writing qualified symbols (Fay.*).
 instance IsString ModuleName where

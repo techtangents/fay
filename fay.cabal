@@ -165,7 +165,9 @@ library
                      process,
                      filepath,
                      directory,
-                     groom
+                     groom,
+                     ghc,
+                     split
 
   if flag(devel)
     build-depends:
@@ -205,7 +207,8 @@ executable fay
                      filepath,
                      groom,
                      options,
-                     haskeline
+                     haskeline,
+                     ghc
 
 executable fay-tests
   if !flag(devel)
@@ -238,7 +241,8 @@ executable fay-tests
                      groom,
                      test-framework,
                      test-framework-hunit,
-                     test-framework-th
+                     test-framework-th,
+                     ghc
 
 executable fay-docs
   if !flag(devel)
@@ -271,4 +275,5 @@ executable fay-docs
                      data-default,
                      safe,
                      language-ecmascript,
-                     groom
+                     groom,
+                     ghc
