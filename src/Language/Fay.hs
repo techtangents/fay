@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -20,12 +21,11 @@ module Language.Fay
   ,printCompile
   ,printTestCompile
   ,compileToplevelModule
-  ,prettyPrintString)
+  ,generateMapping)
   where
 
 import           Language.Fay.Print          (jsEncodeName,printJSString)
 import           Language.Fay.Types
-import           System.Process.Extra
 
 import           Control.Applicative
 import           Control.Monad.Error
@@ -38,13 +38,11 @@ import           Data.Maybe
 import           Data.String
 import qualified Language.ECMAScript3.Parser as JS
 import           Language.Haskell.Exts
-
 import           Safe
-import           System.Directory            (doesFileExist, findExecutable)
-import           System.Exit
+import           System.Directory            (doesFileExist)
 import           System.FilePath             ((</>))
 import           System.IO
-import           System.Process
+import           System.Process.Extra
 
 --------------------------------------------------------------------------------
 -- Top level entry points
@@ -57,17 +55,20 @@ compile config = runCompile (defaultCompileState config) . compileTo
 runCompile :: CompileState -> Compile a -> IO (Either CompileError (a,CompileState))
 runCompile state m = runErrorT (runStateT (unCompile m) state) where
 
+
 -- | Compile a Haskell source string to a JavaScript source string.
 compileViaStr :: (Show from,Show to,CompilesTo from to)
               => CompileConfig
               -> (from -> Compile to)
               -> String
-              -> IO (Either CompileError (String,CompileState))
+              -> IO (Either CompileError (PrintState,CompileState))
 compileViaStr config with from =
   runCompile (defaultCompileState config)
              (parseResult (throwError . uncurry ParseError)
-                          (fmap printJSString . with)
+                          (fmap (\x -> execState (runPrinter (printJS x)) printConfig) . with)
                           (parseFay from))
+
+  where printConfig = def { psPretty = configPrettyPrint config }
 
 -- | Compile a Haskell source string to a JavaScript source string.
 compileToAst :: (Show from,Show to,CompilesTo from to)
@@ -106,11 +107,45 @@ printCompile config with from = do
   result <- compileViaStr config with from
   case result of
     Left err -> print err
-    Right (ok,_) -> prettyPrintString ok >>= putStr
+    Right (ps@PrintState{..},_) -> do
+      putStrLn (concat (reverse (psOutput)))
+
+-- | Generate a source mapping.
+generateMapping :: Int -> FilePath -> FilePath -> [Mapping] -> IO String
+generateMapping line from to mappings = runMappingGenerator (exportMappingGenerator line from to mappings)
+
+-- | Export mappings.
+exportMappingGenerator :: Int -> FilePath -> FilePath -> [Mapping] -> String
+exportMappingGenerator offset fromFile toFile mappings =
+  "var sourceMap = require('source-map');\n" ++
+  "var generator = " ++
+  "  new sourceMap.SourceMapGenerator({" ++
+  "    file: '" ++ toFile ++ "'" ++
+  "  });\n" ++
+  unlines (map addMapping mappings) ++
+  "console.log(generator.toString());"
+
+  where addMapping Mapping{..} =
+          "generator.addMapping({" ++
+          "  original: { line: " ++ show (srcLine mappingFrom)
+                   ++ ", column: " ++ show (srcColumn mappingFrom) ++ " }," ++
+          "  generated: { line: " ++ show (srcLine mappingTo + offset)
+                    ++ ", column: " ++ show (srcColumn mappingTo) ++ " }," ++
+          "  source: \"" ++ fromFile ++ "\"," ++
+          "  name: \"" ++ mappingName ++ "\"" ++
+          "});"
+
+-- | Run the given mapping generator (with node).
+runMappingGenerator :: String -> IO String
+runMappingGenerator code = do
+  result <- readAllFromProcess' "node" [] code
+  case result of
+    Left err -> error err
+    Right (_,out) -> return out
 
 -- | Compile a String of Fay and print it as beautified JavaScript.
 printTestCompile :: String -> IO ()
-printTestCompile = printCompile def { configWarn = False } compileModule
+printTestCompile = printCompile def { configWarn = False, configPrettyPrint = True } compileModule
 
 -- | Compile the given Fay code for the documentation. This is
 -- specialised because the documentation isn't really “real”
@@ -728,19 +763,6 @@ expand :: JsExp -> Maybe [JsExp]
 expand (JsApp (JsName (UnQual (Ident "_"))) xs) =
   fmap concat (mapM flatten xs)
 expand _ = Nothing
-
--- | Format a JS string using "js-beautify", or return the JS as-is if
---   "js-beautify" is unavailable.
-prettyPrintString :: String -> IO String
-prettyPrintString contents = do
-    mexe <- findExecutable "js-beautify"
-    case mexe of
-      Nothing -> return $ contents ++ "\n"
-      Just exe -> do
-        (code,out,_) <- readProcessWithExitCode exe ["--stdin"] contents
-        case code of
-          ExitSuccess -> return out
-          ExitFailure _ -> return $ contents ++ "\n"
 
 -- | Compile a right-hand-side expression.
 compileRhs :: Rhs -> Compile JsExp

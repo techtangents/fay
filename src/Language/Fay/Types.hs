@@ -21,7 +21,8 @@ module Language.Fay.Types
   ,defaultCompileState
   ,FundamentalType(..)
   ,PrintState(..)
-  ,Printer(..))
+  ,Printer(..)
+  ,Mapping(..))
   where
 
 import           Control.Applicative
@@ -51,11 +52,12 @@ data CompileConfig = CompileConfig
   , configFilePath          :: Maybe FilePath
   , configTypecheck         :: Bool
   , configWall              :: Bool
+  , configSourceMap         :: Bool
   }
 
 -- | Default configuration.
 instance Default CompileConfig where
-  def = CompileConfig False False False True [] False False [] False True Nothing True False
+  def = CompileConfig False False False True [] False False [] False True Nothing True False False
 
 -- | State of the compiler.
 data CompileState = CompileState
@@ -101,16 +103,24 @@ type JsName = QName -- FIXME: Force sanitization at this point.
 class (Parseable from,Printable to) => CompilesTo from to | from -> to where
   compileTo :: from -> Compile to
 
+data Mapping = Mapping
+  { mappingName :: String
+  , mappingFrom :: SrcLoc
+  , mappingTo   :: SrcLoc
+  } deriving (Show)
+
 data PrintState = PrintState
-  { psLine         :: Int
+  { psPretty       :: Bool
+  , psLine         :: Int
   , psColumn       :: Int
-  , psMapping      :: [(SrcLoc,SrcLoc)]
+  , psMapping      :: [Mapping]
   , psIndentLevel  :: Int
   , psOutput       :: [String]
-  }
+  , psNewline      :: Bool
+  } deriving (Show)
 
 instance Default PrintState where
-  def = PrintState 0 0 [] 0 []
+  def = PrintState False 0 0 [] 0 [] True
 
 newtype Printer a = Printer { runPrinter :: State PrintState a }
   deriving (Monad,Functor,MonadState PrintState)

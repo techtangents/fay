@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS -fno-warn-orphans #-}
 {-# OPTIONS -fno-warn-orphans #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -33,6 +34,7 @@ defineOptions "FayCompilerOptions" $ do
   boolOption     "optInlineForce" "inline-force" False "inline forcing, adds some speed for numbers, blows up code a bit"
   boolOption     "optFlattenApps" "flatten-apps" False "flatten function applicaton"
 
+  boolOption     "optSourceMap"   "source-map"   False "generate a source map (foo.js.map)"
   boolOption     "optHTMLWrapper" "html-wrapper" False "Create an html file that loads the javascript"
   stringsOption  "optHTMLJSLibs"  "html-js-lib"  []    "file1[, ..] javascript files to add to <head> if using option html-wrapper"
 
@@ -99,6 +101,7 @@ main =
                    , configHtmlJSLibs = optHTMLJSLibs opts
                    , configTypecheck = not $ optNoGHC opts
                    , configWall = optWall opts
+                   , configSourceMap = optSourceMap opts
                    }
   void $ E.catch (incompatible htmlAndStdout opts "Html wrapping and stdout are incompatible")
                  errorUsage
@@ -134,10 +137,10 @@ runInteractive =
             Nothing -> return ()
             Just "" -> loop
             Just input -> do
-                result <- liftIO $ compileViaStr def compileExp input
+                result <- liftIO $ compileViaStr def { configPrettyPrint = True } compileExp input
                 case result of
                     Left err -> outputStrLn . show $ err
-                    Right (ok,_) -> liftIO (prettyPrintString ok) >>= outputStr
+                    Right (PrintState{..},_) -> outputStr (concat (reverse psOutput))
                 loop
 
 runCommandHelp :: (MonadIO m, Options opts) => String -> (opts -> [String] -> m a) -> m a
