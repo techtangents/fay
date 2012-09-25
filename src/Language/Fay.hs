@@ -724,8 +724,7 @@ compileFunCase toplevel matches@(Match srcloc name argslen _ _ _:_) = do
         basecase :: [JsStmt]
         basecase = if any isWildCardMatch matches
                       then []
-                      else [throw ("unhandled case in " ++ show name)
-                                  (JsList (map JsName args))]
+                      else [throw ("unhandled case in " ++ printJSString name)]
 
 -- | Optimize functions in tail-call form.
 optimizeTailCalls :: [JsParam] -- ^ The function parameters.
@@ -890,7 +889,7 @@ compileLambda pats exp = do
     [JsEarlyReturn fun@JsFun{}] -> return fun
     _ -> error "Unexpected statements in compileLambda"
 
-  where unhandledcase = throw "unhandled case" . JsName
+  where unhandledcase name = throw ("unhandled case" ++ printJSString (JsName name))
         allfree = all isWildCardPat pats
 
 -- | Compile case expressions.
@@ -1126,8 +1125,8 @@ optimizePatConditions = concatMap merge . groupBy sameIf where
   getIfConsequent other = other
 
 -- | Throw a JS exception.
-throw :: String -> JsExp -> JsStmt
-throw msg exp = JsThrow (JsList [JsLit (JsStr msg),exp])
+throw :: String -> JsStmt
+throw msg = JsThrow (JsList [JsLit (JsStr msg)])
 
 -- | Throw a JS exception (in an expression).
 throwExp :: String -> JsExp -> JsExp
