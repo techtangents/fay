@@ -24,7 +24,7 @@ To install:
 
     $ cabal install
 
-To run tests (from within this directory):
+To run tests from within this directory (you need nodejs installed):
 
     $ cabal install
     $ fay-tests
@@ -45,7 +45,7 @@ Cabal-dev also works:
     $ cabal-dev/bin/fay-tests
     $ cabal-dev/bin/fay-docs
 
-    $ cabal-dev/bin/fay --autorun examples/console.hs
+    $ cabal-dev/bin/fay --no-ghc examples/console.hs
     $ node examples/console.js
     Hello, World!
 
